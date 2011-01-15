@@ -14,7 +14,9 @@ from BeautifulSoup import BeautifulSoup
 options = OptionParser()
 options.add_option("-b", "--board", dest="board", default='b')
 options.add_option("-o", "--overwrite-images", dest="overwriteImages",
-    default=True, help="Overwrite non-empty images", action="store_true")
+    default=False, help="Overwrite non-empty images", action="store_true")
+options.add_option("-u", "--update", dest="update", action="store_true",
+    default=False, help="update the thread")
 
 
 class Post(object):
@@ -82,7 +84,7 @@ def downloadImages(posts, dest, overwriteImages):
         if post.image:
             localPath = os.path.join(imageDir, post.image)
             if os.path.exists(localPath):
-                if overwriteImages and os.path.getsize(localPath) != 0:
+                if not overwriteImages and os.path.getsize(localPath) != 0:
                     print u"Skip: image %s already exists" % post.image
                     continue
             print u"downloading %s to %s" % (post.imageURL, post.image)
@@ -120,13 +122,30 @@ def main():
     baseDest = args[1]
     board = opts.board
     overwriteImages = opts.overwriteImages
+    if opts.update:
+        updates = -1
+    else:
+        updates = 1
     dest = os.path.join(baseDest, u"%s-%s" % (board, thread))
     if not os.path.exists(dest):
         os.makedirs(dest)
-    soup = getSoup(opts.board, thread)
-    posts = getPosts(soup)
-    downloadImages(posts, dest, overwriteImages)
-    writeData(thread, posts, dest)
+    try:
+        while updates != 0:
+            updates -= 1
+            soup = getSoup(opts.board, thread)
+            posts = getPosts(soup)
+            downloadImages(posts, dest, overwriteImages)
+            writeData(thread, posts, dest)
+            if updates != 0:
+                print "-" * 40
+                time.sleep(10)
+    except KeyboardInterrupt:
+        print "Keyboard Interrupt, ending archiving"
+    except urllib2.HTTPError, e:
+        if e.code == 404:
+            print "Thread or image 404ed"
+        else:
+            raise
 
 if __name__ == "__main__":
     main()

@@ -12,11 +12,16 @@ from optparse import OptionParser
 from BeautifulSoup import BeautifulSoup
 
 options = OptionParser()
-options.add_option("-b", "--board", dest="board", default='b')
+options.add_option("-b", "--board", dest="board",
+    default='b', help="board name")
 options.add_option("-o", "--overwrite-images", dest="overwriteImages",
     default=False, help="Overwrite non-empty images", action="store_true")
 options.add_option("-u", "--update", dest="update", action="store_true",
     default=False, help="update the thread")
+options.add_option("-p", "--pause-update", type="int", dest="pauseUpdate",
+    default=10, help="Wait time between thread updates")
+options.add_option("--pause-image", type="int", dest="pauseImage",
+    default=1, help="Wait time between image downloads")
 
 
 class Post(object):
@@ -76,10 +81,11 @@ def getPosts(soup):
     return posts
 
 
-def downloadImages(posts, dest, overwriteImages):
+def downloadImages(posts, dest, overwriteImages, pauseImage):
     imageDir = os.path.join(dest, "images")
     if not os.path.exists(imageDir):
         os.mkdir(imageDir)
+    print "pause time between requests:", pauseImage
     for post in posts:
         if post.image:
             localPath = os.path.join(imageDir, post.image)
@@ -89,9 +95,14 @@ def downloadImages(posts, dest, overwriteImages):
                     continue
             print u"downloading %s to %s" % (post.imageURL, post.image)
             with open(localPath, 'w') as f:
-                remote = urllib2.urlopen(post.imageURL)
+                try:
+                    remote = urllib2.urlopen(post.imageURL)
+                except urllib2.HTTPError, e:
+                    if e.code == 404:
+                        print "image 404ed"
+                    raise
                 f.write(remote.read())
-            time.sleep(1) # be nice to the servers
+            time.sleep(pauseImage) # be nice to the servers
 
 
 def writeData(thread, posts, dest):
@@ -134,11 +145,12 @@ def main():
             updates -= 1
             soup = getSoup(opts.board, thread)
             posts = getPosts(soup)
-            downloadImages(posts, dest, overwriteImages)
+            downloadImages(posts, dest, overwriteImages, opts.pauseImage)
             writeData(thread, posts, dest)
             if updates != 0:
+                print "waiting %i seconds for next update" % opts.pauseUpdate
                 print "-" * 40
-                time.sleep(10)
+                time.sleep(opts.pauseUpdate)
     except KeyboardInterrupt:
         print "Keyboard Interrupt, ending archiving"
     except urllib2.HTTPError, e:

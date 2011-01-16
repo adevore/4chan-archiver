@@ -85,7 +85,7 @@ def downloadImages(posts, dest, overwriteImages, pauseImage):
     imageDir = os.path.join(dest, "images")
     if not os.path.exists(imageDir):
         os.mkdir(imageDir)
-    print "pause time between requests:", pauseImage
+    print "pause time between image requests:", pauseImage
     for post in posts:
         if post.image:
             localPath = os.path.join(imageDir, post.image)

@@ -19,7 +19,7 @@ options.add_option("-o", "--overwrite-images", dest="overwriteImages",
 options.add_option("-u", "--update", dest="update", action="store_true",
     default=False, help="update the thread")
 options.add_option("-p", "--pause-update", type="int", dest="pauseUpdate",
-    default=10, help="Wait time between thread updates")
+    default=100, help="Wait time between thread updates")
 options.add_option("--pause-image", type="int", dest="pauseImage",
     default=1, help="Wait time between image downloads")
 

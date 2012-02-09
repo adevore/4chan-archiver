@@ -9,9 +9,12 @@ import posixpath
 import json
 import time
 from optparse import OptionParser
-from BeautifulSoup import BeautifulSoup
+from BeautifulSoup import BeautifulSoup, Tag
+import htmlentitydefs
 
-options = OptionParser()
+USAGE = "%prog [options] <thread ID> <base directory>"
+
+options = OptionParser(usage=USAGE)
 options.add_option("-b", "--board", dest="board",
     default='b', help="board name")
 options.add_option("-o", "--overwrite-images", dest="overwriteImages",
@@ -22,6 +25,8 @@ options.add_option("-p", "--pause-update", type="int", dest="pauseUpdate",
     default=100, help="Wait time between thread updates")
 options.add_option("--pause-image", type="int", dest="pauseImage",
     default=1, help="Wait time between image downloads")
+options.add_option("-n", "--no-pics", action="store_false", dest="pics", default=True,
+    help="Do not download pictures")
 
 
 class Post(object):
@@ -51,19 +56,46 @@ def getSoup(board, thread):
     f.close()
     return soup
 
+def getText(tag, seperator=u""):
+    """
+    Get all child text for a tag.
+    """
+    text = []
+    for node in tag.recursiveChildGenerator():
+        if isinstance(node, Tag) and node.name == "br":
+            text.append(u"\n")
+            continue
+        elif not isinstance(node, unicode):
+            continue
+        for find, replace in htmlentitydefs.name2codepoint.items():
+            node = node.replace(u"&%s;" % find, unichr(replace))
+        text.append(node)
+    return seperator.join(text)
+            
+        
+def getOP(soup):
+    threadNode = soup.find("form", {'name': "delform"})
+    timestamp = threadNode.find("span", 'posttime').string
+    poster = threadNode.find("span", "postername").string
+    imageNode = threadNode.find("span", "filesize")
+    imageURL = imageNode.a["href"]
+    imageTitle = imageNode.findNext("span", "filetitle").string
+    postID = threadNode.find("input", type="checkbox", value="delete")["name"]
+    text = getText(threadNode.blockquote, " ")
+    return Post(postID, text, poster, timestamp, imageURL, imageTitle)
 
-def getPosts(soup):
-    posts = []
-    imageCount = 0
+
+def getRegularPosts(soup, posts):
     postTables = (td.findParent('table')
         for td in soup.findAll('td', 'doubledash'))
+    imageCount = 0
 
     for postTable in postTables:
         postID = postTable.find('td', id=True)['id']
-        text = postTable.find('blockquote').renderContents().strip()
+        text = getText(postTable.find('blockquote'), u" ")
         posterSpan = postTable.find('span', 'commentpostername')
         poster = posterSpan.string
-        timestamp = posterSpan.findNext(text=True)
+        timestamp = posterSpan.findNextSibling(text=True)
 
         filespan = postTable.find('span', 'filesize')
         if filespan:
@@ -77,6 +109,12 @@ def getPosts(soup):
         post = Post(postID, text, poster, timestamp, imageURL, imageTitle)
         print u"found %s" % post
         posts.append(post)
+    return imageCount
+
+def getPosts(soup):
+    posts = [getOP(soup)]
+    imageCount = 1 # Start at 1 for OP's image
+    imageCount += getRegularPosts(soup, posts)
     print u"found %i posts with %i images" % (len(posts), imageCount)
     return posts
 
@@ -110,6 +148,7 @@ def writeData(thread, posts, dest):
     jsonPosts = []
     jsonCode = {}
     jsonCode['id'] = thread
+
     jsonCode['posts'] = jsonPosts
     for post in posts:
         jsonPosts.append({
@@ -122,13 +161,13 @@ def writeData(thread, posts, dest):
             })
     print u"writing thread data for %s to %s" % (thread, target)
     with open(target, 'w') as f:
-        json.dump(jsonCode, f)
+        json.dump(jsonCode, f, indent=4)
 
 
 def main():
     opts, args = options.parse_args()
     if len(args) != 2:
-        print options.usage
+        options.print_usage()
     thread = args[0]
     baseDest = args[1]
     board = opts.board
@@ -145,7 +184,8 @@ def main():
             updates -= 1
             soup = getSoup(opts.board, thread)
             posts = getPosts(soup)
-            downloadImages(posts, dest, overwriteImages, opts.pauseImage)
+            if opts.pics:
+                downloadImages(posts, dest, overwriteImages, opts.pauseImage)
             writeData(thread, posts, dest)
             if updates != 0:
                 print "waiting %i seconds for next update" % opts.pauseUpdate

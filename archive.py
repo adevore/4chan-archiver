@@ -83,7 +83,7 @@ def parse_post(container):
 
     post_message_tag = container.find('blockquote', 'postMessage')
     message = []
-    for child in post_message_tag.children:
+    for child in post_message_tag.descendants:
         if isinstance(child, str):
             message.append(child)
         elif child.name == 'br':

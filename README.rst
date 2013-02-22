@@ -77,8 +77,7 @@ Options
 
   -h, --help            show this help message and exit
   --author AUTHOR       Exact match author
-  --author-re AUTHOR_RE
-                        Regexp match author
+  --author-re AUTHOR_RE Regexp match author
   --text TEXT           Exact match message body
   --text-re TEXT_RE     Regexp match message body
   --id ID, -i ID        Message id (repeatable)
@@ -88,10 +87,11 @@ Options
   --green-text          Match only posts with green text
   --no-green-text       Match only posts without green text
   --out OUT, -o OUT     Output file
+  --htmldir HTMLDIR     Write a full HTML directory including images
   --format FORMAT       Output format (html|json|plaintext)
 
-For images to display correctly when outputting HTML, output into the
-archive's root directory.
+Using --format html only outputs an HTML file. Use --htmldir to get a
+directory with all files properly in place.
 
 --------------
 Archive Layout

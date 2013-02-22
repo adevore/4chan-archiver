@@ -6,6 +6,7 @@ from functools import partial
 import os
 import sys
 import re
+import shutil
 
 import archivelib
 
@@ -30,6 +31,8 @@ arg_parser.add_argument('--green-text', action="store_true",
 arg_parser.add_argument('--no-green-text', action="store_false",
                         help="Match only posts without greentext")
 arg_parser.add_argument('--out', '-o', help="Output file")
+arg_parser.add_argument('--htmldir',
+                        help="Write a full HTML directory inc. images")
 arg_parser.add_argument('--format', default="json",
                         help="Output format (html|json|plaintext)")
 arg_parser.add_argument('path', help="Thread archive location")
@@ -99,6 +102,16 @@ def output(f, format, thread, posts):
         f.write(archivelib.render_html(thread, posts))
     elif format == "plaintext":
         f.write(archivelib.render_plaintext(thread, posts))
+        
+        
+def write_html_dir(src, dest, thread, posts):
+    image_src_dir = os.path.join(src, "images")
+    image_dest_dir = os.path.join(dest, "images")
+    html_dest = os.path.join(dest, "thread.html")
+    os.makedirs(dest, exist_ok=True)
+    shutil.copytree(image_src_dir, image_dest_dir)
+    with open(html_dest, "w") as f:
+        f.write(archivelib.render_html(thread, posts))
 
 
 def main():
@@ -106,7 +119,11 @@ def main():
     constraints = make_constraints(opts)
     thread = archivelib.Thread(os.path.expanduser(opts.path))
     posts = filter_posts(thread, constraints)
-    if opts.out:
+    if opts.htmldir:
+        write_html_dir(os.path.expanduser(opts.path),
+                       os.path.expanduser(opts.htmldir),
+                       thread, posts)
+    elif opts.out:
         with open(opts.out, "w") as f:
             output(f, opts.format, thread, posts)
     else:

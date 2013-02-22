@@ -5,12 +5,13 @@
 
 import urllib.request, urllib.error
 import os
-import posixpath
-import json
+import re
 import time
 from optparse import OptionParser
 from bs4 import BeautifulSoup
+import archivelib
 
+# TODO: Switch to argparse
 options = OptionParser()
 options.add_option("-b", "--board", dest="board",
     default='mlp', help="board name")
@@ -24,55 +25,47 @@ options.add_option("--pause-image", type="int", dest="pause_image",
     default=1, help="Wait time between image downloads")
 
 
-class Post(object):
+class Post(archivelib.Post):
+    # Add image location attribute
     def __init__(self):
-        self.image_name = self.image_location = self.image_original = None
-
-    @property
-    def has_image(self):
-        return self.image_name is not None
-
-    def __repr__(self):
-        if self.image_name:
-            return "%(id)s by %(poster)s with %(image)s" % self.__dict__
-        else:
-            return "{id} by {poster} with no {image}".format(self.__dict__)
+        self.image_location = None
+        super().__init__()
 
 
-def get_soup(board, thread):
-    url = "http://boards.4chan.org/%s/res/%s" % (board, thread)
-    print("downloading thread %s for board %s at %s" % (thread, board, url))
+def get_soup(thread):
+    url = "http://boards.4chan.org/%s/res/%s" % (thread.board, thread.id)
+    print("downloading thread %s for board %s at %s" %
+          (thread.id, thread.board, url))
     f = urllib.request.urlopen(url)
     soup = BeautifulSoup(f)
     f.close()
     return soup
 
 
-def parse_posts(soup):
+def parse_posts(soup, thread):
     image_count = 1  # OP has to have an image
     op = parse_post(soup.find(True, 'opContainer'))
-    posts = [op]
+    thread.add_post(op)
 
     for reply_container in soup.find_all(True, 'replyContainer'):
         reply = parse_post(reply_container)
-        if reply.image_name:
+        if reply.has_image:
             image_count += 1
-        posts.append(reply)
-        
-    print("found {} posts with {} images".format(len(posts), image_count))
-    return posts
+        thread.add_post(reply)
+ 
+    print("found {} posts with {} images".format(len(thread.posts),
+                                                 image_count))
 
 
 def parse_post(container):
     p = Post()
     # id, poster, subject
     p.id = int(container["id"][2:])
-    p.poster = container.find('span', 'name').text.strip()
+    p.author = container.find('span', 'name').text.strip()
     p.subject = container.find(True, 'subject').text.strip()
 
     post_number_tag = container.find('span', 'postNum')
-    p.utc = post_number_tag["data-utc"]
-    p.timestamp = post_number_tag.text.strip()
+    p.utc = int(post_number_tag["data-utc"])
 
     file_text_tag = container.find(True, 'fileText')
     if file_text_tag:
@@ -91,7 +84,7 @@ def parse_post(container):
     p.text = ''.join(message)
 
     return p
-    
+
 
 def download_images(posts, dest, overwrite_images, pause_image):
     image_dir = os.path.join(dest, "images")
@@ -117,52 +110,44 @@ def download_images(posts, dest, overwrite_images, pause_image):
             time.sleep(pause_image) # be nice to the servers
 
 
-def write_data(thread, posts, dest):
-   target = os.path.join(dest, "thread.js")
-   json_posts = []
-   json_code = {}
-   json_code['id'] = thread
-   json_code['posts'] = json_posts
-   for post in posts:
-       json_posts.append({
-               'id': post.id,
-               'poster': post.poster,
-               'subject': post.subject,
-               'image': {
-                   'name': post.image_name,
-                   'original': post.image_original,
-                   },
-               'timestamp': post.timestamp,
-               'utc': post.utc,
-               'text': post.text,
-               })
-       print("writing thread data for %s to %s" % (thread, target))
-       with open(target, 'w') as f:
-           json.dump(json_code, f, indent=4)
+def write_data(thread, dest):
+    target = os.path.join(dest, "thread.js")
+    print("writing thread data for %s to %s" % (thread.id, target))
+    with open(target, 'w') as f:
+        thread.json_dump(f, indent=4)
 
 
 def main():
     opts, args = options.parse_args()
     if len(args) != 2:
         print(options.usage)
-    thread = args[0]
-    baseDest = args[1]
-    board = opts.board
+    thread, baseDest = args
+
+    thread_match = re.match("([a-z]+)(\d+)", thread)
+    if not thread_match:
+        print("Thread not of format <board><thread id>")
+    thread = archivelib.Thread()
+    thread.board = thread_match.group(1)
+    thread.id = int(thread_match.group(2))
+
     overwrite_images = opts.overwrite_images
     if opts.update:
         updates = -1
     else:
         updates = 1
-    dest = os.path.join(baseDest, "%s-%s" % (board, thread))
+    dest = os.path.join(baseDest, "%s-%s" % (thread.board, thread.id))
     if not os.path.exists(dest):
         os.makedirs(dest)
     try:
         while updates != 0:
             updates -= 1
-            soup = get_soup(opts.board, thread)
-            posts = parse_posts(soup)
-            download_images(posts, dest, overwrite_images, opts.pause_image)
-            write_data(thread, posts, dest)
+            soup = get_soup(thread)
+            parse_posts(soup, thread)
+            download_images(thread.posts, dest, overwrite_images,
+                            opts.pause_image)
+
+            write_data(thread, dest)
+
             if updates != 0:
                 print("waiting %i seconds for next update" % opts.pauseUpdate)
                 print("-" * 40)

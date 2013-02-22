@@ -1,0 +1,14 @@
+Thread: {{thread.id}} on /{{thread.board}}/
+
+{% for post in posts %}
+Author: {{post.author}}
+Subject: {{post.subject}}
+Time: {{post.timestamp}}
+{% if post.has_image %}
+Image Original: {{post.image_original}}
+Image Name: {{post.image_name}}
+{% endif %}
+{% for paragraph in post.paragraphs %}
+{{textwrap.fill(paragraph)}}
+{% endfor %}
+{% endfor %}

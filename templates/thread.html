@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>/{{thread.board}}/: {{thread.id}}</title>
+  <style type="text/css">
+    .quote {
+      color: green;
+    }
+    .post {
+      border: black 2px solid;
+    }
+  </style>
+</head>
+<body>
+
+<h1>Thread {{thread.id}} on board {{thread.board}}</h1>
+
+{% for post in posts %}
+  <div class="post">
+    <h2>{{post.subject_defaulting}} by {{post.author}}</h2>
+    <div class="post-heading">
+      <span class="timestamp">{{post.timestamp}}</span>
+    </div>
+    <div class="post-body">
+      {% if post.has_image %}
+        <a href="images/{{post.image_name}}">
+          <img src="images/{{post.image_name}}" alt="{{post.image_original}}" width="128" height="128">
+        </a>
+      {% endif %}
+
+      {% for paragraph in post.paragraphs %}
+        {% if paragraph.is_quote %}
+          <p class="quote">{{paragraph}}</p>
+        {% else %}
+          <p>{{paragraph}}</p>
+        {% endif %}
+      {% endfor %}
+    </div><!-- End Body -->
+  </div><!-- End Post -->
+{% endfor %}
+</body>
+</html>

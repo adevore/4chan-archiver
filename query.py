@@ -108,6 +108,9 @@ def write_html_dir(src, dest, thread, posts):
     image_src_dir = os.path.join(src, "images")
     image_dest_dir = os.path.join(dest, "images")
     html_dest = os.path.join(dest, "thread.html")
+    
+    if os.path.exists(dest):
+        shutil.rmtree(dest)
     os.makedirs(dest, exist_ok=True)
     shutil.copytree(image_src_dir, image_dest_dir)
     with open(html_dest, "w") as f:

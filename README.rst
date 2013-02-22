@@ -13,6 +13,7 @@ Dependencies
 
 * Python 3.1+
 * BeautifulSoup 4.x
+* Jinja2 (optional, for HTML output)
 * Linux (not tested on Windows or Mac)
 
 --------

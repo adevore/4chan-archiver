@@ -78,7 +78,8 @@ Options
 
   -h, --help            show this help message and exit
   --author AUTHOR       Exact match author
-  --author-re AUTHOR_RE Regexp match author
+  --author-re AUTHOR_RE
+                        Regexp match author
   --text TEXT           Exact match message body
   --text-re TEXT_RE     Regexp match message body
   --id ID, -i ID        Message id (repeatable)
